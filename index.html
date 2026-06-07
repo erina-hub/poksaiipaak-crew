@@ -122,6 +122,15 @@
             <h2>🛒 รายการสั่งซื้อ</h2>
             
             <div class="form-group">
+                <label>ช่องทางการสั่งซื้อ:</label>
+                <div class="delivery-btns">
+                    <button type="button" class="active" onclick="setChannel('LINE', this)">🟢 LINE</button>
+                    <button type="button" onclick="setChannel('Facebook', this)">🔵 FB Inbox</button>
+                    <button type="button" onclick="setChannel('หน้าร้าน', this)">🏠 หน้าร้าน</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
                 <label>เบอร์ติดต่อ / ชื่อลูกค้า:</label>
                 <input type="text" id="customer-info" placeholder="เช่น 081-xxx-xxxx (คุณเอ)">
             </div>
@@ -168,8 +177,9 @@
             <div class="r-header">
                 <h3 class="r-title">ปอกใส่ปาก ผลไม้พร้อมทาน</h3>
                 <p class="r-info" id="r-time"></p>
-                <p class="r-info" id="r-customer"></p>
-                <p class="r-note-print" id="r-note"></p> </div>
+                <p class="r-info" id="r-channel"></p> <p class="r-info" id="r-customer"></p>
+                <p class="r-note-print" id="r-note"></p>
+            </div>
             <table class="r-table">
                 <thead>
                     <tr>
@@ -202,21 +212,28 @@
     </div>
 
     <script>
-        // ⚠️ ลิงก์เชื่อมฐานข้อมูล Google Apps Script ตัวเดียวกันกับเมนูลูกค้า
+        // ⚠️ ลิงก์เชื่อมฐานข้อมูล Google Apps Script
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbziXKeVFE-_qwH1dEdE_AAGDvZmpZEKytWOSPjv-y3QrTVMosy2osVSwjMHs0epHdvt/exec'; 
 
         let menuData = [];
         let itemDictionary = {};
         let cart = {};
         let deliveryFee = 0;
+        let orderChannel = 'LINE'; // ตั้งค่าเริ่มต้นเป็น LINE
 
-        // ดึงข้อมูลจาก GAS
+        // ฟังก์ชันอัปเดตช่องทางการสั่งซื้อ
+        function setChannel(channel, btn) {
+            orderChannel = channel;
+            const parent = btn.parentElement;
+            parent.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
         async function loadData() {
             try {
                 const response = await fetch(SCRIPT_URL + '?action=getData');
                 menuData = await response.json();
                 
-                // สร้าง Dictionary เพื่อให้ง่ายตอนค้นหาสินค้าลงตะกร้า
                 menuData.forEach(item => {
                     itemDictionary[item.id] = item;
                 });
@@ -231,7 +248,6 @@
             const container = document.getElementById('menu-container');
             container.innerHTML = '';
 
-            // 1. หมวดผลไม้ปกติ
             const standardCats = [40, 50, 60, 70, 80, 90, 100];
             standardCats.forEach(cat => {
                 const items = menuData.filter(item => Number(item.category) === cat);
@@ -240,13 +256,11 @@
                 }
             });
 
-            // 2. หมวดพรีเมียม (>100)
             const premiumItems = menuData.filter(item => Number(item.category) > 100);
             if (premiumItems.length > 0) {
                 createCategoryBlock(`✨ ---- ผลไม้พรีเมียม ---- ✨`, premiumItems, false);
             }
 
-            // 3. หมวดน้ำจิ้ม (0 และ 20)
             const dipItems = menuData.filter(item => Number(item.category) === 0 || Number(item.category) === 20);
             if (dipItems.length > 0) {
                 createCategoryBlock(`🥣 ---- ตัวเลือกน้ำจิ้ม / พริกเกลือ ---- 🥣`, dipItems, true);
@@ -295,7 +309,8 @@
 
         function setDelivery(fee) {
             deliveryFee = fee;
-            document.querySelectorAll('.del-btn').forEach(btn => {
+            const container = document.querySelectorAll('.delivery-btns')[1]; // เลือก div ค่าส่ง
+            container.querySelectorAll('.del-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if(btn.innerText.includes(fee) || (fee === 0 && btn.innerText.includes('ฟรี'))) {
                     btn.classList.add('active');
@@ -354,14 +369,13 @@
             const now = new Date();
             const timeStr = now.toLocaleDateString('th-TH') + ' ' + now.toLocaleTimeString('th-TH').substring(0,5) + ' น.';
             
-            // ดึงข้อมูลลูกค้าและหมายเหตุ
             const customer = document.getElementById('customer-info').value.trim() || 'ลูกค้าทั่วไป';
             const note = document.getElementById('order-note').value.trim();
 
             document.getElementById('r-time').innerText = 'เวลารับออเดอร์ : ' + timeStr;
+            document.getElementById('r-channel').innerText = 'ช่องทาง : ' + orderChannel; // ใส่ช่องทางลงในใบเสร็จ
             document.getElementById('r-customer').innerText = 'ติดต่อ : ' + customer;
             
-            // จัดการส่วนหมายเหตุในใบเสร็จ
             const rNote = document.getElementById('r-note');
             if(note !== "") {
                 rNote.innerText = '📌 หมายเหตุ: ' + note;
@@ -417,7 +431,6 @@
             }, 300);
         }
 
-        // โหลดข้อมูลเมื่อเปิดหน้าเว็บ
         loadData();
     </script>
 </body>
